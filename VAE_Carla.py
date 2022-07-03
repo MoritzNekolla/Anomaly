@@ -18,29 +18,32 @@ import torch.nn.functional as  F
 
 from clearml import Dataset
 
-# from Image_Sampler import Sampler
+from Image_Sampler import Sampler
 
 
 
-from clearml import Task
+from clearml import Task, Logger
 
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="example_run", reuse_last_task_id=False)
 
-# Remote Execution on FZI XZ
+
+MODEL_NAME = "clearML"
+PATH = "models/" + MODEL_NAME
+# IMG_TRAIN = "/disk/vanishing_data/is789/anomaly_samples/train_set/"
+# IMG_TEST = "/disk/vanishing_data/is789/anomaly_samples/40test/"
+TRAIN_ID = "7c89dda94374478a8937be5916177f70"
+TEST_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
+
+
+### ClearML section
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="example_run", output_uri=PATH)
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
             docker_arguments="-e NVIDIA_DRIVER_CAPABILITIES=all"  # --ipc=host",   
             )
-
 task.execute_remotely('docker', clone=False, exit_process=True) 
 
-MODEL_NAME = "overfit"
-PATH = "/disk/vanishing_data/is789/models/" + MODEL_NAME + "/"
-IMG_TRAIN = "/disk/vanishing_data/is789/anomaly_samples/train_set/"
-IMG_TEST = "/disk/vanishing_data/is789/anomaly_samples/40test/"
-TRAIN_ID = "7c89dda94374478a8937be5916177f70"
-TEST_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
+
 ###lr anpassen auch die early stops
 epoch = 10
 BATCH_SIZE = 2
@@ -49,22 +52,7 @@ zDim=512
 learning_rate = 1e-05 #1e-04 
 REDUCE_THRESHOLD = [0.6,0.8]
 start_time = time.time()
-
-
-# In[ ]:
-
-
-if not os.path.isdir(PATH):
-    os.mkdir(PATH)
-
-
-# In[ ]:
-
-
-# print("Loading data...")
-# train_data = Sampler.load_Images(IMG_TRAIN).astype("float32") / 255
-
-# test_data = Sampler.load_Images(IMG_TEST).astype("float32") / 255
+logger = task.get_logger()
 
 
 # In[ ]:
@@ -72,11 +60,11 @@ if not os.path.isdir(PATH):
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = np.array(train_data).astype("float32") / 255
+train_data = Sampler.load_Images(train_data).astype("float32") / 255
 print(train_data.shape)
 
 test_data = Dataset.get(dataset_id=TEST_ID).get_local_copy()
-test_data = np.array(test_data).astype("float32") / 255
+test_data = Sampler.load_Images(test_data).astype("float32") / 255
 
 
 # In[ ]:
@@ -410,6 +398,8 @@ for e in range(1, epoch+1):
     val_losses.append(val_loss)
     train_loss /= len(dataloaders["train"].dataset)
     val_loss /= len(dataloaders["test"].dataset)
+    Logger.current_logger().report_scalar(
+        "test", "loss", iteration=e, value=train_loss)
 
     print(f"Epoch {e} | Loss: {train_loss} | V_Loss: {val_loss}")
 
@@ -443,35 +433,35 @@ def evalOnSet(data):
 # In[ ]:
 
 
-end_time = time.time()
-time_elapsed = ((end_time - start_time) / 60.0) / 60.0
-time_elapsed = int(time_elapsed * 100000)/ 100000.0
+# end_time = time.time()
+# time_elapsed = ((end_time - start_time) / 60.0) / 60.0
+# time_elapsed = int(time_elapsed * 100000)/ 100000.0
 
-avg_mse = evalOnSet(test_data)
-print(avg_mse)
+# avg_mse = evalOnSet(test_data)
+# print(avg_mse)
 
-file = open(PATH + "summary.txt", "w")
-file.write("Train loss: " + str(train_losses[-1]) + " Val loss: " + str(val_losses[-1]))
-file.write("\nEpochs: " + str(epoch))
-file.write("\nBatchSize: " + str(BATCH_SIZE))
-file.write("\nzDim: " + str(zDim))
-file.write("\nAvg mse on test_data: " + str(avg_mse))
-file.write("\nTime elapsed: " + str(time_elapsed) + " hours")
+# file = open(PATH + "summary.txt", "w")
+# file.write("Train loss: " + str(train_losses[-1]) + " Val loss: " + str(val_losses[-1]))
+# file.write("\nEpochs: " + str(epoch))
+# file.write("\nBatchSize: " + str(BATCH_SIZE))
+# file.write("\nzDim: " + str(zDim))
+# file.write("\nAvg mse on test_data: " + str(avg_mse))
+# file.write("\nTime elapsed: " + str(time_elapsed) + " hours")
 
 
 # In[ ]:
 
 
-plt.figure(figsize=(10,5))
-plt.title("Training and Validation Loss")
-plt.plot(val_losses[15:],label="val")
-plt.plot(train_losses[15:],label="train")
-plt.xlabel("iterations")
-plt.ylabel("Loss")
-plt.legend()
-plt.savefig(PATH + "loss_plot.svg")
-plt.savefig(PATH + "loss_plot.png")
-plt.show()
+# plt.figure(figsize=(10,5))
+# plt.title("Training and Validation Loss")
+# plt.plot(val_losses[15:],label="val")
+# plt.plot(train_losses[15:],label="train")
+# plt.xlabel("iterations")
+# plt.ylabel("Loss")
+# plt.legend()
+# plt.savefig(PATH + "loss_plot.svg")
+# plt.savefig(PATH + "loss_plot.png")
+# plt.show()
 
 
 # In[ ]:
@@ -494,6 +484,7 @@ def printReconError(img_in, img_out, threshold=None):
     ax2.imshow(img_out, cmap="gray")
     ax3.set_title("ErrorMap")
     ax3.imshow(errorMatrix, cmap="gray")
+    logger.report_image("Prediction", "image PIL", iteration=1, image=fig)
 
 
 # In[ ]:
@@ -523,30 +514,30 @@ with torch.no_grad():
 # In[ ]:
 
 
-import random
+# import random
 
-model.eval()
-with torch.no_grad():
-    for imgs in random.sample(list(dataloaders["train"]), 1):
-        imgs = imgs.to(device)
-#         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
-        plt.subplot(121)
-        img = imgs[0].cpu().numpy()
-        img = np.transpose(img, (2,1,0))
+# model.eval()
+# with torch.no_grad():
+#     for imgs in random.sample(list(dataloaders["train"]), 1):
+#         imgs = imgs.to(device)
+# #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
+#         plt.subplot(121)
+#         img = imgs[0].cpu().numpy()
+#         img = np.transpose(img, (2,1,0))
 
-        plt.imshow(img)
-        out, mu, logVAR = model(imgs)
-#         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
-        plt.subplot(122)
-        out = out[0].cpu().numpy()
-        out = np.transpose(out, (2,1,0))
+#         plt.imshow(img)
+#         out, mu, logVAR = model(imgs)
+# #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
+#         plt.subplot(122)
+#         out = out[0].cpu().numpy()
+#         out = np.transpose(out, (2,1,0))
 
-        plt.imshow(out)
-        break
+#         plt.imshow(out)
+#         break
 
 
 # In[ ]:
 
 
-torch.save(model.state_dict(), PATH + "model.pt")
+torch.save(model.state_dict(), "model.pt")
 
