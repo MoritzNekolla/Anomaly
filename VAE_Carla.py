@@ -51,6 +51,14 @@ imgSize=512
 zDim=512
 learning_rate = 1e-05 #1e-04 
 REDUCE_THRESHOLD = [0.6,0.8]
+
+parameters = {
+    "epoch" : 10,
+    "batch_size" : 2,
+    "imgSize": 512,
+    "learning_rate" : 1e-05
+}
+task.connect(parameters)
 start_time = time.time()
 logger = task.get_logger()
 
@@ -398,7 +406,7 @@ for e in range(1, epoch+1):
     val_losses.append(val_loss)
     train_loss /= len(dataloaders["train"].dataset)
     val_loss /= len(dataloaders["test"].dataset)
-    Logger.current_logger().report_scalar(
+    logger.report_scalar(
         "test", "loss", iteration=e, value=train_loss)
 
     print(f"Epoch {e} | Loss: {train_loss} | V_Loss: {val_loss}")
@@ -410,6 +418,20 @@ for e in range(1, epoch+1):
 
 
 model.eval()
+
+
+# In[ ]:
+
+
+from PIL import Image
+def fig2img(fig):
+    """Convert a Matplotlib figure to a PIL Image and return it"""
+    import io
+    buf = io.BytesIO()
+    fig.savefig(buf)
+    buf.seek(0)
+    img = Image.open(buf)
+    return img
 
 
 # In[ ]:
@@ -484,7 +506,17 @@ def printReconError(img_in, img_out, threshold=None):
     ax2.imshow(img_out, cmap="gray")
     ax3.set_title("ErrorMap")
     ax3.imshow(errorMatrix, cmap="gray")
-    logger.report_image("Prediction", "image PIL", iteration=1, image=fig)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Anomaly", "forecast", image=data)
+
+
+# In[ ]:
+
+
+logger.report_text('log some text', print_console=False)
+logger.flush()
 
 
 # In[ ]:
@@ -514,26 +546,46 @@ with torch.no_grad():
 # In[ ]:
 
 
-# import random
+import random
 
-# model.eval()
-# with torch.no_grad():
-#     for imgs in random.sample(list(dataloaders["train"]), 1):
-#         imgs = imgs.to(device)
-# #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
-#         plt.subplot(121)
-#         img = imgs[0].cpu().numpy()
-#         img = np.transpose(img, (2,1,0))
+def make_prediction(dataSet, index):
+    model.eval()
+    with torch.no_grad():
+        imgs = torch.as_tensor(np.array([dataSet[index].numpy()]))
+        print(imgs.shape)
+        imgs = imgs.to(device)
+    #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
+        img = imgs[0].cpu().numpy()
+        img = np.transpose(img, (2,1,0))
 
-#         plt.imshow(img)
-#         out, mu, logVAR = model(imgs)
-# #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
-#         plt.subplot(122)
-#         out = out[0].cpu().numpy()
-#         out = np.transpose(out, (2,1,0))
+        out, mu, logVAR = model(imgs)
+    #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
+        out = out[0].cpu().numpy()
+        out = np.transpose(out, (2,1,0))
 
-#         plt.imshow(out)
-#         break
+        #plotting
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,15))
+        ax1.set_title("Original")
+        ax1.imshow(img)
+        ax2.set_title("Reconstruction")
+        ax2.imshow(out)
+        return fig
+
+
+# In[ ]:
+
+
+fig = make_prediction(train_data, 0)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Prediction", "Train_set", image=data)
+
+fig = make_prediction(test_data, 0)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Prediction", "Test_set", image=data)
 
 
 # In[ ]:
