@@ -326,7 +326,7 @@ def loss_fn(x, recon_x, mu, log_var):
     Recon_loss = F.mse_loss(recon_x.view(-1, imgSize*imgSize), x.view(-1, imgSize*imgSize), reduction = "sum")
     Recon_loss_adapted = Recon_loss * imgSize * imgSize *3
     KLD_loss = 0.5 * torch.sum(mu.pow(2) + log_var.exp() - 1 - log_var)
-    return Recon_loss_adapted + KLD_loss
+    return Recon_loss_adapted + KLD_loss, Recon_loss
 
 
 # In[ ]:
@@ -355,12 +355,12 @@ dataloaders["train"] = DataLoader(dataset=train_data,
                                           drop_last=True)
 
 dataloaders["test"] = DataLoader(dataset=test_data,
-                                          batch_size=parameters["batch_size"],
+                                          batch_size=5,
                                           shuffle=True,
                                           drop_last=True)
 
 dataloaders["noise"] = DataLoader(dataset=noise_set,
-                                          batch_size=parameters["batch_size"],
+                                          batch_size=5,
                                           shuffle=True,
                                           drop_last=True)
 

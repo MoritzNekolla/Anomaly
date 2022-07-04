@@ -145,4 +145,4 @@ class Sampler:
 
 if __name__ == "__main__":
     sampler = Sampler(s_width=512, s_height=512, cam_height=4, cam_zoom=50, cam_rotation=-18)
-    sampler.collect_Samples(sample_size=10000, tick_rate=6)
+    sampler.collect_Samples(sample_size=300, tick_rate=6)
