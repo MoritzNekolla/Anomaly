@@ -45,18 +45,23 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 
 
 ###lr anpassen auch die early stops
-epoch = 10
-BATCH_SIZE = 2
-imgSize=512
-zDim=512
-learning_rate = 1e-05 #1e-04 
-REDUCE_THRESHOLD = [0.6,0.8]
+# epoch = 2500
+# BATCH_SIZE = 32
+# imgSize=512
+# zDim=512
+# learning_rate = 1e-05 #1e-04 
+# REDUCE_THRESHOLD = [0.6,0.8]
+# layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 10,
-    "batch_size" : 2,
+    "epoch" : 4000,
+    "batch_size" : 100,
     "imgSize": 512,
-    "learning_rate" : 1e-05
+    "zDim": 1024,
+    "learning_rate" : 1e-05,
+    "layers" : [64, 128, 265, 512, 700],
+    "reduce_threshold" : [0.6,0.8]
+
 }
 task.connect(parameters)
 start_time = time.time()
@@ -147,7 +152,7 @@ print(device)
 
 class VAE(nn.Module):
     
-    def __init__(self, imgChannels=3, imgSize=imgSize, zDim=zDim):
+    def __init__(self, imgChannels=3, imgSize=parameters["imgSize"], zDim=parameters["zDim"]):
         super(VAE, self).__init__()
         
         stride=2
@@ -157,7 +162,7 @@ class VAE(nn.Module):
         out_padding=[0,0,0,0,1]
         kernel=3
 #         layers=[128, 128, 128, 256, 256]
-        layers=[32, 64, 128, 128, 256]
+        layers=parameters["layers"]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
 
@@ -317,9 +322,11 @@ def loss_fn(x, recon_x, mu, log_var):
 #     return torch.mean(Recon_loss + KLD_loss)
 #     Recon_loss = F.mse_loss(recon_x.view(-1, 2500), x.view(-1, 2500), reduction = "sum") * 32 * 32 *3
 #     Recon_loss = F.binary_cross_entropy(recon_x.view(-1, imgSize*imgSize), x.view(-1, imgSize*imgSize), reduction = "sum") * imgSize * imgSize *3
-    Recon_loss = F.mse_loss(recon_x.view(-1, imgSize*imgSize), x.view(-1, imgSize*imgSize), reduction = "sum") * imgSize * imgSize *3
+    imgSize = parameters["imgSize"]
+    Recon_loss = F.mse_loss(recon_x.view(-1, imgSize*imgSize), x.view(-1, imgSize*imgSize), reduction = "sum")
+    Recon_loss_adapted = Recon_loss * imgSize * imgSize *3
     KLD_loss = 0.5 * torch.sum(mu.pow(2) + log_var.exp() - 1 - log_var)
-    return Recon_loss + KLD_loss
+    return Recon_loss_adapted + KLD_loss
 
 
 # In[ ]:
@@ -327,7 +334,7 @@ def loss_fn(x, recon_x, mu, log_var):
 
 model = VAE()
 model.to(device)
-optimizer = optim.Adam(model.parameters(), lr = learning_rate)
+optimizer = optim.Adam(model.parameters(), lr = parameters["learning_rate"])
 
 pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 print(f"Trainable params: {pytorch_total_params}")
@@ -343,95 +350,22 @@ from torch.utils.data import DataLoader
 
 dataloaders = {}
 dataloaders["train"] = DataLoader(dataset=train_data,
-                                          batch_size=BATCH_SIZE,
+                                          batch_size=parameters["batch_size"],
                                           shuffle=True,
                                           drop_last=True)
 
 dataloaders["test"] = DataLoader(dataset=test_data,
-                                          batch_size=BATCH_SIZE,
+                                          batch_size=parameters["batch_size"],
                                           shuffle=True,
                                           drop_last=True)
 
 dataloaders["noise"] = DataLoader(dataset=noise_set,
-                                          batch_size=BATCH_SIZE,
+                                          batch_size=parameters["batch_size"],
                                           shuffle=True,
                                           drop_last=True)
 
 images = next(iter(dataloaders["test"]))
 plt.imshow(np.transpose(images[0], (2,1,0)))
-
-
-# In[ ]:
-
-
-train_losses = []
-val_losses = []
-
-reducer = []
-for cutter in REDUCE_THRESHOLD:
-    reducer.append(int(epoch * cutter))
-
-print("Training started!")
-
-for e in range(1, epoch+1):
-    for reduce in reducer:    
-        if e == reduce:
-            for g in optimizer.param_groups:
-                g['lr'] = learning_rate / 10
-            print("Changed learningrate")
-
-    train_loss = 0.0
-    for x in dataloaders["train"]:
-        x = x.to(device)
-        x_recon, mu, log_var = model(x)
-
-        optimizer.zero_grad()
-        loss = loss_fn(x, x_recon, mu, log_var)
-        loss.backward()
-        optimizer.step()
-
-        train_loss += loss.item()
-    
-    val_loss = 0.0
-    for x in dataloaders["test"]:
-        x = x.to(device)
-        x_recon, mu, log_var = model(x)
-
-        optimizer.zero_grad()
-        loss = loss_fn(x, x_recon, mu, log_var)
-
-        val_loss += loss.item()
-    
-    train_losses.append(train_loss)
-    val_losses.append(val_loss)
-    train_loss /= len(dataloaders["train"].dataset)
-    val_loss /= len(dataloaders["test"].dataset)
-    logger.report_scalar(
-        "test", "loss", iteration=e, value=train_loss)
-
-    print(f"Epoch {e} | Loss: {train_loss} | V_Loss: {val_loss}")
-
-
-# ## Evaluation Section
-
-# In[ ]:
-
-
-model.eval()
-
-
-# In[ ]:
-
-
-from PIL import Image
-def fig2img(fig):
-    """Convert a Matplotlib figure to a PIL Image and return it"""
-    import io
-    buf = io.BytesIO()
-    fig.savefig(buf)
-    buf.seek(0)
-    img = Image.open(buf)
-    return img
 
 
 # In[ ]:
@@ -450,6 +384,80 @@ def evalOnSet(data):
         errorAvg = np.sum(errorMatrix) / (errorMatrix.shape[0] * errorMatrix.shape[1] * errorMatrix.shape[2])
         avg_MSE += errorAvg
     return avg_MSE / len(data)
+
+
+# In[ ]:
+
+
+train_losses = []
+val_losses = []
+train_MAE = []
+val_MAE = []
+
+reducer = []
+for cutter in parameters["reduce_threshold"]:
+    reducer.append(int(parameters["epoch"] * cutter))
+
+print("Training started!")
+
+for e in range(1, parameters["epoch"]+1):
+    for reduce in reducer:    
+        if e == reduce:
+            for g in optimizer.param_groups:
+                g['lr'] = g['lr'] / 10
+            print("Changed learningrate")
+
+    train_loss = 0.0
+    train_mse = 0.0
+    for x in dataloaders["train"]:
+        x = x.to(device)
+        x_recon, mu, log_var = model(x)
+
+        optimizer.zero_grad()
+        loss, mse = loss_fn(x, x_recon, mu, log_var)
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        train_mse += mse-item()
+    
+    val_loss = 0.0
+    val_mse = 0.0
+    for x in dataloaders["test"]:
+        x = x.to(device)
+        x_recon, mu, log_var = model(x)
+
+        optimizer.zero_grad()
+        loss, mse = loss_fn(x, x_recon, mu, log_var)
+
+        val_loss += loss.item()
+        val_mse += mse.item()
+        
+    ## logging
+    train_loss /= len(dataloaders["train"].dataset)
+    val_loss /= len(dataloaders["test"].dataset)
+    train_mse /= len(dataloaders["train"].dataset)
+    val_mse /= len(dataloaders["test"].dataset)
+#     train_losses.append(train_loss)
+#     val_losses.append(val_loss)
+    logger.report_scalar(
+        "loss", "train", iteration=e, value=train_loss)
+    logger.report_scalar(
+        "loss", "validation", iteration=e, value=val_loss)
+    logger.report_scalar(
+        "MSE", "train", iteration=e, value=train_mse)
+    logger.report_scalar(
+        "MSE", "validation", iteration=e, value=val_mse)
+
+    print(f"Epoch {e} | Loss: {train_loss} | V_Loss: {val_loss} | MSE: {train_mse} | V_MSE: {val_mse}")
+
+
+# ## Evaluation Section
+
+# In[ ]:
+
+
+model.eval()
 
 
 # In[ ]:
@@ -509,7 +517,7 @@ def printReconError(img_in, img_out, threshold=None):
     fig.canvas.draw()
     data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
     data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Anomaly", "forecast", image=data)
+    logger.report_image("zAnomaly", "forecast", image=data)
 
 
 # In[ ]:
