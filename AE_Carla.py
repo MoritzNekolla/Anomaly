@@ -188,7 +188,7 @@ class VAE(nn.Module):
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
         self.encFC1 = nn.Linear(featureDim, zDim)
-        self.encFC2 = nn.Linear(featureDim, zDim)
+#         self.encFC2 = nn.Linear(featureDim, zDim)
 
         # Initializing the fully-connected layer and 2 convolutional layers for decoder
         self.decFC1 = nn.Linear(zDim, featureDim)
@@ -266,16 +266,16 @@ class VAE(nn.Module):
         flatten = np.prod(self.final_encoder_dim)
 
         x = x.view(-1, flatten)
-        mu = self.encFC1(x)
-        logVar = self.encFC2(x)
-        return mu, logVar
+        z = self.encFC1(x)
+        
+        return z
 
-    def reparameterize(self, mu, logVar):
+#     def reparameterize(self, mu, logVar):
 
-        #Reparameterization takes in the input mu and logVar and sample the mu + std * eps
-        std = torch.exp(logVar/2)
-        eps = torch.randn_like(std)
-        return mu + std * eps
+#         #Reparameterization takes in the input mu and logVar and sample the mu + std * eps
+#         std = torch.exp(logVar/2)
+#         eps = torch.randn_like(std)
+#         return mu + std * eps
 
     def decoder(self, z):
 
@@ -299,12 +299,10 @@ class VAE(nn.Module):
 
     def forward(self, x):
 
-        # The entire pipeline of the VAE: encoder -> reparameterization -> decoder
-        # output, mu, and logVar are returned for loss computation
-        mu, logVar = self.encoder(x)
-        z = self.reparameterize(mu, logVar)
+        z = self.encoder(x)
+
         out = self.decoder(z)
-        return out, mu, logVar
+        return out
 
 
 # In[ ]:
@@ -319,7 +317,7 @@ class VAE(nn.Module):
 
 
 
-def loss_fn(x, recon_x, mu, log_var):
+def loss_fn(x, recon_x):
 #     Recon_loss = F.mse_loss(recon_x.view(-1, 1024), x.view(-1, 1024), reduction = "sum")
 #     Recon_loss = F.mse_loss(recon_x.view(-1, 1024), x.view(-1, 1024)) * 32 * 32
 #     Recon_loss = F.binary_cross_entropy(recon_x.view(-1, 1024), x.view(-1, 1024)) * 32 * 32 *3
@@ -331,9 +329,7 @@ def loss_fn(x, recon_x, mu, log_var):
 #     Recon_loss = F.binary_cross_entropy(recon_x.view(-1, imgSize*imgSize), x.view(-1, imgSize*imgSize), reduction = "sum") * imgSize * imgSize *3
     imgSize = parameters["imgSize"]
     Recon_loss = F.mse_loss(recon_x.view(-1, imgSize*imgSize), x.view(-1, imgSize*imgSize), reduction = "sum")
-    Recon_loss_adapted = Recon_loss * imgSize * imgSize *3
-    KLD_loss = 0.5 * torch.sum(mu.pow(2) + log_var.exp() - 1 - log_var)
-    return Recon_loss_adapted + KLD_loss, Recon_loss
+    return Recon_loss, Recon_loss
 #     return Recon_loss_adapted, Recon_loss
 
 
@@ -419,10 +415,10 @@ for e in range(1, parameters["epoch"]+1):
     train_mse = 0.0
     for x in dataloaders["train"]:
         x = x.to(device)
-        x_recon, mu, log_var = model(x)
+        x_recon = model(x)
 
         optimizer.zero_grad()
-        loss, mse = loss_fn(x, x_recon, mu, log_var)
+        loss, mse = loss_fn(x, x_recon)
         loss.backward()
         optimizer.step()
 
@@ -433,10 +429,10 @@ for e in range(1, parameters["epoch"]+1):
     val_mse = 0.0
     for x in dataloaders["test"]:
         x = x.to(device)
-        x_recon, mu, log_var = model(x)
+        x_recon = model(x)
 
         optimizer.zero_grad()
-        loss, mse = loss_fn(x, x_recon, mu, log_var)
+        loss, mse = loss_fn(x, x_recon)
 
         val_loss += loss.item()
         val_mse += mse.item()
