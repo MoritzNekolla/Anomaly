@@ -156,31 +156,33 @@ class VAE(nn.Module):
     def __init__(self, imgChannels=3, imgSize=parameters["imgSize"], zDim=parameters["zDim"]):
         super(VAE, self).__init__()
         
-        stride=2
+        stride=[1,2,2,2,2,2,2]
+        out_stride=[2,2,2,2,2,2,2]
 #         in_stride=[1,2,2,2,2]
 #         out_stride=[1,2,2,2,1]
-        in_padding=[0,0,0,0,0,0,0]
-        out_padding=[0,0,0,0,0,0,1]
-        kernel=3
+        in_padding=[1,0,0,0,0,0,0]
+        in_trans_padding=[0,0,0,0,0,1,0]
+        out_padding=[0,0,0,0,0,1,0]
+        kernel=[3,3,3,3,3,3,3]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
 
         # Initializing the 2 convolutional layers and 2 full-connected layers for the encoder
-        self.encConv1 = nn.Conv2d(in_channels=imgChannels, out_channels=layers[0], kernel_size=kernel, stride=stride, padding=in_padding[0])
+        self.encConv1 = nn.Conv2d(in_channels=imgChannels, out_channels=layers[0], kernel_size=kernel[0], stride=stride[0], padding=in_padding[0])
         self.encBn1 = nn.BatchNorm2d(layers[0])
-        self.encConv2 = nn.Conv2d(in_channels=layers[0], out_channels=layers[1], kernel_size=kernel, stride=stride, padding=in_padding[1])
+        self.encConv2 = nn.Conv2d(in_channels=layers[0], out_channels=layers[1], kernel_size=kernel[1], stride=stride[1], padding=in_padding[1])
         self.encBn2 = nn.BatchNorm2d(layers[1])
-        self.encConv3 = nn.Conv2d(in_channels=layers[1], out_channels=layers[2], kernel_size=kernel, stride=stride, padding=in_padding[2])
+        self.encConv3 = nn.Conv2d(in_channels=layers[1], out_channels=layers[2], kernel_size=kernel[2], stride=stride[2], padding=in_padding[2])
         self.encBn3 = nn.BatchNorm2d(layers[2])
-        self.encConv4 = nn.Conv2d(in_channels=layers[2], out_channels=layers[3], kernel_size=kernel, stride=stride, padding=in_padding[3])
+        self.encConv4 = nn.Conv2d(in_channels=layers[2], out_channels=layers[3], kernel_size=kernel[3], stride=stride[3], padding=in_padding[3])
         self.encBn4 = nn.BatchNorm2d(layers[3])
-        self.encConv5 = nn.Conv2d(in_channels=layers[3], out_channels=layers[4], kernel_size=kernel, stride=stride, padding=in_padding[3])
+        self.encConv5 = nn.Conv2d(in_channels=layers[3], out_channels=layers[4], kernel_size=kernel[4], stride=stride[4], padding=in_padding[4])
         self.encBn5 = nn.BatchNorm2d(layers[4])
-        self.encConv6 = nn.Conv2d(in_channels=layers[4], out_channels=layers[5], kernel_size=kernel, stride=stride, padding=in_padding[5])
+        self.encConv6 = nn.Conv2d(in_channels=layers[4], out_channels=layers[5], kernel_size=kernel[5], stride=stride[5], padding=in_padding[5])
         self.encBn6 = nn.BatchNorm2d(layers[5])
-        self.encConv7 = nn.Conv2d(in_channels=layers[5], out_channels=layers[6], kernel_size=kernel, stride=stride, padding=in_padding[6])
+        self.encConv7 = nn.Conv2d(in_channels=layers[5], out_channels=layers[6], kernel_size=kernel[6], stride=stride[6], padding=in_padding[6])
         self.encBn7 = nn.BatchNorm2d(layers[6])
         
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
@@ -191,19 +193,19 @@ class VAE(nn.Module):
         # Initializing the fully-connected layer and 2 convolutional layers for decoder
         self.decFC1 = nn.Linear(zDim, featureDim)
         self.decBn1 = nn.BatchNorm1d(featureDim)
-        self.decConv1 = nn.ConvTranspose2d(in_channels=layers[6], out_channels=layers[5], kernel_size=kernel, stride=stride, output_padding=out_padding[0])
+        self.decConv1 = nn.ConvTranspose2d(in_channels=layers[6], out_channels=layers[5], kernel_size=kernel[6], stride=stride[6], padding=in_trans_padding[0], output_padding=out_padding[0])
         self.decBn2 = nn.BatchNorm2d(layers[5])
-        self.decConv2 = nn.ConvTranspose2d(in_channels=layers[5], out_channels=layers[4], kernel_size=kernel, stride=stride, output_padding=out_padding[1])
+        self.decConv2 = nn.ConvTranspose2d(in_channels=layers[5], out_channels=layers[4], kernel_size=kernel[5], stride=stride[5], padding=in_trans_padding[1], output_padding=out_padding[1])
         self.decBn3 = nn.BatchNorm2d(layers[4])
-        self.decConv3 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers[3], kernel_size=kernel, stride=stride, output_padding=out_padding[2])
+        self.decConv3 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers[3], kernel_size=kernel[4], stride=stride[4], padding=in_trans_padding[2], output_padding=out_padding[2])
         self.decBn4 = nn.BatchNorm2d(layers[3])
-        self.decConv4 = nn.ConvTranspose2d(in_channels=layers[3], out_channels=layers[2], kernel_size=kernel, stride=stride, output_padding=out_padding[3])
+        self.decConv4 = nn.ConvTranspose2d(in_channels=layers[3], out_channels=layers[2], kernel_size=kernel[3], stride=stride[3], padding=in_trans_padding[3], output_padding=out_padding[3])
         self.decBn5 = nn.BatchNorm2d(layers[2])
-        self.decConv5 = nn.ConvTranspose2d(in_channels=layers[2], out_channels=layers[1], kernel_size=kernel, stride=stride, output_padding=out_padding[4])
+        self.decConv5 = nn.ConvTranspose2d(in_channels=layers[2], out_channels=layers[1], kernel_size=kernel[2], stride=stride[2], padding=in_trans_padding[4], output_padding=out_padding[4])
         self.decBn6 = nn.BatchNorm2d(layers[1])
-        self.decConv6 = nn.ConvTranspose2d(in_channels=layers[1], out_channels=layers[0], kernel_size=kernel, stride=stride, output_padding=out_padding[5])
+        self.decConv6 = nn.ConvTranspose2d(in_channels=layers[1], out_channels=layers[0], kernel_size=kernel[1], stride=stride[1], padding=in_trans_padding[5], output_padding=out_padding[5])
         self.decBn7 = nn.BatchNorm2d(layers[0])
-        self.decConv7 = nn.ConvTranspose2d(in_channels=layers[0], out_channels=imgChannels, kernel_size=kernel, stride=stride, output_padding=out_padding[6])
+        self.decConv7 = nn.ConvTranspose2d(in_channels=layers[0], out_channels=imgChannels, kernel_size=kernel[0], stride=stride[0], padding=in_trans_padding[6], output_padding=out_padding[6])
         
         self.final_encoder_dim = None
         
@@ -213,7 +215,7 @@ class VAE(nn.Module):
     def calcEncoderDims(self, layer_size, imageSize, kernel, in_padding, stride):
         newDims = [imageSize]
         for x in range(layer_size):
-            tmpSize = int((newDims[-1]-kernel+2*in_padding[x])/stride)+1
+            tmpSize = int((newDims[-1]-kernel[x]+2*in_padding[x])/stride[x])+1
             newDims.append(tmpSize)
         newDims.pop(0)
         return newDims
@@ -221,7 +223,7 @@ class VAE(nn.Module):
     def calcDecoderDims(self, layer_size, imageSize, kernel, in_padding, out_padding, stride, d=1):
         newDims = [imageSize]
         for x in range(layer_size):
-            tmpSize = (newDims[-1] - 1)*stride - 2*in_padding[x] + d*(kernel - 1) + out_padding[x] + 1
+            tmpSize = (newDims[-1] - 1)*stride[x] - 2*in_padding[x] + d*(kernel[x] - 1) + out_padding[x] + 1
             newDims.append(tmpSize)
 #         newDims.pop(0)
         return newDims
@@ -246,19 +248,19 @@ class VAE(nn.Module):
         
     def encoder(self, x):
 
-        x = F.relu(self.encConv1(x))
+        x = F.leaky_relu(self.encConv1(x))
         x = self.encBn1(x)
-        x = F.relu(self.encConv2(x))
+        x = F.leaky_relu(self.encConv2(x))
         x = self.encBn2(x)
-        x = F.relu(self.encConv3(x))
+        x = F.leaky_relu(self.encConv3(x))
         x = self.encBn3(x)
-        x = F.relu(self.encConv4(x))
+        x = F.leaky_relu(self.encConv4(x))
         x = self.encBn4(x)
-        x = F.relu(self.encConv5(x))
+        x = F.leaky_relu(self.encConv5(x))
         x = self.encBn5(x)
-        x = F.relu(self.encConv6(x))
+        x = F.leaky_relu(self.encConv6(x))
         x = self.encBn6(x)
-        x = F.relu(self.encConv7(x))
+        x = F.leaky_relu(self.encConv7(x))
         x = self.encBn7(x)
         self.final_encoder_dim = np.array([x.size(1), x.size(2), x.size(3)])
         flatten = np.prod(self.final_encoder_dim)
@@ -277,20 +279,20 @@ class VAE(nn.Module):
 
     def decoder(self, z):
 
-        x = F.relu(self.decFC1(z))
+        x = F.leaky_relu(self.decFC1(z))
         x = self.decBn1(x)
         x = x.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
-        x = F.relu(self.decConv1(x))
+        x = F.leaky_relu(self.decConv1(x))
         x = self.decBn2(x)
-        x = F.relu(self.decConv2(x))
+        x = F.leaky_relu(self.decConv2(x))
         x = self.decBn3(x)
-        x = F.relu(self.decConv3(x))
+        x = F.leaky_relu(self.decConv3(x))
         x = self.decBn4(x)
-        x = F.relu(self.decConv4(x))
+        x = F.leaky_relu(self.decConv4(x))
         x = self.decBn5(x)
-        x = F.relu(self.decConv5(x))
+        x = F.leaky_relu(self.decConv5(x))
         x = self.decBn6(x)
-        x = F.relu(self.decConv6(x))
+        x = F.leaky_relu(self.decConv6(x))
         x = self.decBn7(x)
         x = torch.sigmoid(self.decConv7(x))
         return x
