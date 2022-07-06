@@ -36,7 +36,7 @@ TEST_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
 
 
 ### ClearML section
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri=PATH)
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla_long", output_uri=PATH)
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
@@ -55,18 +55,17 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 8000,
+    "epoch" : 16000,
     "batch_size" : 16,
     "imgSize": 512,
     "zDim": 1024,
     "learning_rate" : 1e-05,
-    "layers" : [64, 128, 265, 512, 512, 512, 512],
+#     "layers" : [64, 128, 265, 512, 512, 512, 512],
+    "layers" : [64, 128, 265, 512, 512, 960],
     "reduce_threshold" : [0.6,0.8]
 }
 
-task.connect(parameters)
 start_time = time.time()
-logger = task.get_logger()
 
 
 # In[ ]:
@@ -75,10 +74,20 @@ logger = task.get_logger()
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
 train_data = Sampler.load_Images(train_data).astype("float32") / 255
+parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
 test_data = Dataset.get(dataset_id=TEST_ID).get_local_copy()
 test_data = Sampler.load_Images(test_data).astype("float32") / 255
+parameters["test_data"] = test_data.shape
+
+
+# In[ ]:
+
+
+#start ClearML logging
+task.connect(parameters)
+logger = task.get_logger()
 
 
 # In[ ]:
@@ -156,7 +165,7 @@ class VAE(nn.Module):
     def __init__(self, imgChannels=3, imgSize=parameters["imgSize"], zDim=parameters["zDim"]):
         super(VAE, self).__init__()
         
-        stride=[1,2,1,2,2,2,2]
+        stride=[1,2,1,2,2,2]
         out_stride=[2,2,2,2,2,2,2]
 #         in_stride=[1,2,2,2,2]
 #         out_stride=[1,2,2,2,1]
