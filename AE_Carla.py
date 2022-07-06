@@ -30,13 +30,13 @@ MODEL_NAME = "clearML"
 PATH = "models/" + MODEL_NAME
 # IMG_TRAIN = "/disk/vanishing_data/is789/anomaly_samples/train_set/"
 # IMG_TEST = "/disk/vanishing_data/is789/anomaly_samples/40test/"
-# TRAIN_ID = "7c89dda94374478a8937be5916177f70"
+TRAIN_ID = "7c89dda94374478a8937be5916177f70"
 TEST_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
-TRAIN_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
+# TRAIN_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
 
 
 ### ClearML section
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="VAE_carla", output_uri=PATH)
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri=PATH)
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
@@ -56,7 +56,7 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 
 parameters = {
     "epoch" : 8000,
-    "batch_size" : 2,
+    "batch_size" : 16,
     "imgSize": 512,
     "zDim": 1024,
     "learning_rate" : 1e-05,
@@ -156,12 +156,12 @@ class VAE(nn.Module):
     def __init__(self, imgChannels=3, imgSize=parameters["imgSize"], zDim=parameters["zDim"]):
         super(VAE, self).__init__()
         
-        stride=[1,2,2,2,2,2,2]
+        stride=[1,2,1,2,2,2,2]
         out_stride=[2,2,2,2,2,2,2]
 #         in_stride=[1,2,2,2,2]
 #         out_stride=[1,2,2,2,1]
-        in_padding=[1,0,0,0,0,0,0]
-        in_trans_padding=[0,0,0,0,0,1,0]
+        in_padding=[1,0,1,0,0,0,0]
+        in_trans_padding=[0,0,0,0,1,1,0]
         out_padding=[0,0,0,0,0,1,0]
         kernel=[3,3,3,3,3,3,3]
 #         layers=[128, 128, 128, 256, 256]
@@ -545,7 +545,7 @@ with torch.no_grad():
         img = np.transpose(img, (2,1,0))
 #         plt.imshow(img, cmap="gray")
         
-        out, mu, logVAR = model(imgs)
+        out = model(imgs)
 #         plt.subplot(122)
         out = out[0].cpu().numpy()
         out = np.transpose(out, (2,1,0))
@@ -570,7 +570,7 @@ def make_prediction(dataSet, index):
         img = imgs[0].cpu().numpy()
         img = np.transpose(img, (2,1,0))
 
-        out, mu, logVAR = model(imgs)
+        out = model(imgs)
     #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
         out = out[0].cpu().numpy()
         out = np.transpose(out, (2,1,0))
