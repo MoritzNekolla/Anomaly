@@ -31,7 +31,7 @@ PATH = "models/" + MODEL_NAME
 # IMG_TRAIN = "/disk/vanishing_data/is789/anomaly_samples/train_set/"
 # IMG_TEST = "/disk/vanishing_data/is789/anomaly_samples/40test/"
 TRAIN_ID = "7c89dda94374478a8937be5916177f70"
-TEST_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
+TEST_ID = "df4380bfcf004bfabaa500ee491e0541"
 # TRAIN_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
 
 
@@ -55,13 +55,13 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 16000,
+    "epoch" : 10,
     "batch_size" : 16,
     "imgSize": 512,
-    "zDim": 1024,
+    "zDim": 256,
     "learning_rate" : 1e-05,
-#     "layers" : [64, 128, 265, 512, 512, 512, 512],
-    "layers" : [64, 128, 265, 512, 512, 960],
+    "layers" : [64, 128, 265, 512, 700, 700, 700],
+#     "layers" : [64, 120, 240, 480, 800],
     "reduce_threshold" : [0.6,0.8]
 }
 
@@ -165,7 +165,8 @@ class VAE(nn.Module):
     def __init__(self, imgChannels=3, imgSize=parameters["imgSize"], zDim=parameters["zDim"]):
         super(VAE, self).__init__()
         
-        stride=[1,2,1,2,2,2]
+        
+        stride=[1,2,1,2,2,2,2]
         out_stride=[2,2,2,2,2,2,2]
 #         in_stride=[1,2,2,2,2]
 #         out_stride=[1,2,2,2,1]
@@ -197,7 +198,6 @@ class VAE(nn.Module):
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
         self.encFC1 = nn.Linear(featureDim, zDim)
-#         self.encFC2 = nn.Linear(featureDim, zDim)
 
         # Initializing the fully-connected layer and 2 convolutional layers for decoder
         self.decFC1 = nn.Linear(zDim, featureDim)
@@ -593,20 +593,56 @@ def make_prediction(dataSet, index):
         return fig
 
 
-# In[ ]:
+# In[1]:
 
 
 fig = make_prediction(train_data, 0)
 fig.canvas.draw()
 data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
 data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Prediction", "Train_set", image=data)
+logger.report_image("Train_set", "001", image=data)
 
-fig = make_prediction(test_data, 0)
+fig = make_prediction(train_data, 1)
 fig.canvas.draw()
 data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
 data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Prediction", "Test_set", image=data)
+logger.report_image("Train_set", "002", image=data)
+
+fig = make_prediction(train_data, 2)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Train_set", "003", image=data)
+
+fig = make_prediction(train_data, 3)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Train_set", "004", image=data)
+
+fig = make_prediction(test_data, 1)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Validation_set", "001", image=data)
+
+fig = make_prediction(test_data, 2)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Validation_set", "002", image=data)
+
+fig = make_prediction(test_data, 3)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Validation_set", "003", image=data)
+
+fig = make_prediction(test_data, 4)
+fig.canvas.draw()
+data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+logger.report_image("Validation_set", "004", image=data)
 
 
 # In[ ]:
