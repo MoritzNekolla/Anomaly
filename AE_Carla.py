@@ -55,12 +55,12 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 10,
+    "epoch" : 16000,
     "batch_size" : 16,
     "imgSize": 512,
-    "zDim": 256,
+    "zDim": 128,
     "learning_rate" : 1e-05,
-    "layers" : [64, 128, 265, 512, 700, 700, 700],
+    "layers" : [64, 128, 256, 256, 512, 512, 512],
 #     "layers" : [64, 120, 240, 480, 800],
     "reduce_threshold" : [0.6,0.8]
 }
@@ -171,7 +171,7 @@ class VAE(nn.Module):
 #         in_stride=[1,2,2,2,2]
 #         out_stride=[1,2,2,2,1]
         in_padding=[1,0,1,0,0,0,0]
-        in_trans_padding=[0,0,0,0,1,1,0]
+        in_trans_padding=[0,0,0,0,1,0,1]
         out_padding=[0,0,0,0,0,1,0]
         kernel=[3,3,3,3,3,3,3]
 #         layers=[128, 128, 128, 256, 256]
@@ -218,21 +218,22 @@ class VAE(nn.Module):
         
         self.final_encoder_dim = None
         
-        decoderDims = self.calcDecoderDims(len(layers), encoderDims[-1], kernel, in_padding, out_padding, stride)
+        decoderDims = self.calcDecoderDims(len(layers), encoderDims[-1], kernel, in_trans_padding, out_padding, stride)
         self.printModel(layers, encoderDims, decoderDims, imgSize, imgChannels)
 
     def calcEncoderDims(self, layer_size, imageSize, kernel, in_padding, stride):
         newDims = [imageSize]
         for x in range(layer_size):
-            tmpSize = int((newDims[-1]-kernel[x]+2*in_padding[x])/stride[x])+1
+#             tmpSize = int((newDims[-1]-kernel[x]+2*in_padding[x])/stride[x])+1
+            tmpSize = int(((newDims[-1] + 2*in_padding[x]-(kernel[x]-1)-1)/stride[x])+1)
             newDims.append(tmpSize)
         newDims.pop(0)
         return newDims
     
-    def calcDecoderDims(self, layer_size, imageSize, kernel, in_padding, out_padding, stride, d=1):
+    def calcDecoderDims(self, layer_size, imageSize, kernel, in_trans_padding, out_padding, stride, d=1):
         newDims = [imageSize]
-        for x in range(layer_size):
-            tmpSize = (newDims[-1] - 1)*stride[x] - 2*in_padding[x] + d*(kernel[x] - 1) + out_padding[x] + 1
+        for x in range(layer_size):            
+            tmpSize = (newDims[-1] - 1)*stride[layer_size-1-x] - 2*in_trans_padding[x] + d*(kernel[layer_size-1-x] - 1) + out_padding[x] + 1
             newDims.append(tmpSize)
 #         newDims.pop(0)
         return newDims
