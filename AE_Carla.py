@@ -36,7 +36,7 @@ TEST_ID = "df4380bfcf004bfabaa500ee491e0541"
 
 
 ### ClearML section
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla_long", output_uri=PATH)
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri=PATH)
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
@@ -199,7 +199,6 @@ class VAE(nn.Module):
         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
         self.encFC1 = nn.Linear(featureDim, zDim)
 
-        # Initializing the fully-connected layer and 2 convolutional layers for decoder
         self.decFC1 = nn.Linear(zDim, featureDim)
         self.decBn1 = nn.BatchNorm1d(featureDim)
         self.decConv1 = nn.ConvTranspose2d(in_channels=layers[6], out_channels=layers[5], kernel_size=kernel[6], stride=stride[6], padding=in_trans_padding[0], output_padding=out_padding[0])
@@ -276,9 +275,10 @@ class VAE(nn.Module):
         flatten = np.prod(self.final_encoder_dim)
 
         x = x.view(-1, flatten)
-        z = self.encFC1(x)
+        z = F.leaky_relu(self.encFC1(x))
         
         return z
+#         return x
 
 #     def reparameterize(self, mu, logVar):
 
@@ -308,9 +308,7 @@ class VAE(nn.Module):
         return x
 
     def forward(self, x):
-
         z = self.encoder(x)
-
         out = self.decoder(z)
         return out
 
