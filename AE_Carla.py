@@ -55,7 +55,7 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 6000,
+    "epoch" : 10,
     "batch_size" : 10,
     "imgSize": 512,
     "zDim": 128,
@@ -73,7 +73,7 @@ start_time = time.time()
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=17500).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=15000).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
@@ -401,6 +401,88 @@ def evalOnSet(data):
 # In[ ]:
 
 
+import random
+
+def make_prediction(dataSet, index):
+    model.eval()
+    with torch.no_grad():
+        imgs = torch.as_tensor(np.array([dataSet[index].numpy()]))
+        print(imgs.shape)
+        imgs = imgs.to(device)
+    #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
+        img = imgs[0].cpu().numpy()
+        img = np.transpose(img, (2,1,0))
+
+        out = model(imgs)
+    #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
+        out = out[0].cpu().numpy()
+        out = np.transpose(out, (2,1,0))
+
+        #plotting
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,15))
+        ax1.set_title("Original")
+        ax1.imshow(img)
+        ax2.set_title("Reconstruction")
+        ax2.imshow(out)
+        return fig
+
+
+# In[ ]:
+
+
+def performance_snapshot(epoch=None):
+    fig = make_prediction(train_data, 0)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Train_set", "001", iteration=epoch, image=data)
+
+    fig = make_prediction(train_data, 1)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Train_set", "002", iteration=epoch, image=data)
+
+    fig = make_prediction(train_data, 2)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Train_set", "003", iteration=epoch, image=data)
+
+    fig = make_prediction(train_data, 3)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Train_set", "004", iteration=epoch, image=data)
+
+    fig = make_prediction(test_data, 1)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Validation_set", "001", iteration=epoch, image=data)
+
+    fig = make_prediction(test_data, 2)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Validation_set", "002", iteration=epoch, image=data)
+
+    fig = make_prediction(test_data, 3)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Validation_set", "003", iteration=epoch, image=data)
+
+    fig = make_prediction(test_data, 4)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image("Validation_set", "004", iteration=epoch, image=data)
+
+
+# In[ ]:
+
+
 train_losses = []
 val_losses = []
 train_MAE = []
@@ -460,6 +542,10 @@ for e in range(1, parameters["epoch"]+1):
         "MSE", "train", iteration=e, value=train_mse)
     logger.report_scalar(
         "MSE", "validation", iteration=e, value=val_mse)
+    if e % 3 == 0:
+        model.eval()
+        performance_snapshot(epoch=e)
+        model.train()
 
     print(f"Epoch {e} | Loss: {train_loss} | V_Loss: {val_loss} | MSE: {train_mse} | V_MSE: {val_mse}")
 
@@ -561,35 +647,6 @@ with torch.no_grad():
         
         printReconError(img, out, 0.0)
         break
-
-
-# In[ ]:
-
-
-import random
-
-def make_prediction(dataSet, index):
-    model.eval()
-    with torch.no_grad():
-        imgs = torch.as_tensor(np.array([dataSet[index].numpy()]))
-        print(imgs.shape)
-        imgs = imgs.to(device)
-    #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
-        img = imgs[0].cpu().numpy()
-        img = np.transpose(img, (2,1,0))
-
-        out = model(imgs)
-    #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
-        out = out[0].cpu().numpy()
-        out = np.transpose(out, (2,1,0))
-
-        #plotting
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,15))
-        ax1.set_title("Original")
-        ax1.imshow(img)
-        ax2.set_title("Reconstruction")
-        ax2.imshow(out)
-        return fig
 
 
 # In[1]:
