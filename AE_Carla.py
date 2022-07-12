@@ -55,7 +55,7 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 16000,
+    "epoch" : 6000,
     "batch_size" : 10,
     "imgSize": 512,
     "zDim": 128,
