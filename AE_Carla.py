@@ -56,11 +56,11 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 
 parameters = {
     "epoch" : 16000,
-    "batch_size" : 16,
+    "batch_size" : 10,
     "imgSize": 512,
     "zDim": 128,
     "learning_rate" : 1e-05,
-    "layers" : [64, 128, 256, 256, 512, 512, 512],
+    "layers" : [64, 128, 256, 256, 512, 512, 940],
 #     "layers" : [64, 120, 240, 480, 800],
     "reduce_threshold" : [0.6,0.8]
 }
@@ -197,10 +197,10 @@ class VAE(nn.Module):
         
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
-        self.encFC1 = nn.Linear(featureDim, zDim)
+#         self.encFC1 = nn.Linear(featureDim, zDim)
 
-        self.decFC1 = nn.Linear(zDim, featureDim)
-        self.decBn1 = nn.BatchNorm1d(featureDim)
+#         self.decFC1 = nn.Linear(zDim, featureDim)
+#         self.decBn1 = nn.BatchNorm1d(featureDim)
         self.decConv1 = nn.ConvTranspose2d(in_channels=layers[6], out_channels=layers[5], kernel_size=kernel[6], stride=stride[6], padding=in_trans_padding[0], output_padding=out_padding[0])
         self.decBn2 = nn.BatchNorm2d(layers[5])
         self.decConv2 = nn.ConvTranspose2d(in_channels=layers[5], out_channels=layers[4], kernel_size=kernel[5], stride=stride[5], padding=in_trans_padding[1], output_padding=out_padding[1])
@@ -271,14 +271,14 @@ class VAE(nn.Module):
         x = self.encBn6(x)
         x = F.leaky_relu(self.encConv7(x))
         x = self.encBn7(x)
-        self.final_encoder_dim = np.array([x.size(1), x.size(2), x.size(3)])
-        flatten = np.prod(self.final_encoder_dim)
+#         self.final_encoder_dim = np.array([x.size(1), x.size(2), x.size(3)])
+#         flatten = np.prod(self.final_encoder_dim)
 
-        x = x.view(-1, flatten)
-        z = F.leaky_relu(self.encFC1(x))
+#         x = x.view(-1, flatten)
+#         z = F.leaky_relu(self.encFC1(x))
         
-        return z
-#         return x
+#         return z
+        return x
 
 #     def reparameterize(self, mu, logVar):
 
@@ -287,11 +287,11 @@ class VAE(nn.Module):
 #         eps = torch.randn_like(std)
 #         return mu + std * eps
 
-    def decoder(self, z):
+    def decoder(self, x):
 
-        x = F.leaky_relu(self.decFC1(z))
-        x = self.decBn1(x)
-        x = x.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
+#         x = F.leaky_relu(self.decFC1(x))
+#         x = self.decBn1(x)
+#         x = x.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
         x = F.leaky_relu(self.decConv1(x))
         x = self.decBn2(x)
         x = F.leaky_relu(self.decConv2(x))
