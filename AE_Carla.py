@@ -42,7 +42,7 @@ task.set_base_docker(
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
             docker_arguments="-e NVIDIA_DRIVER_CAPABILITIES=all"  # --ipc=host",   
             )
-task.execute_remotely('docker', clone=False, exit_process=True) 
+task.execute_remotely('rtx3090', clone=False, exit_process=True) 
 
 
 ###lr anpassen auch die early stops
@@ -55,13 +55,13 @@ task.execute_remotely('docker', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 10,
+    "epoch" : 16000,
     "batch_size" : 10,
     "imgSize": 512,
     "zDim": 128,
     "learning_rate" : 1e-05,
-    "layers" : [64, 128, 256, 256, 512, 512, 940],
-#     "layers" : [64, 120, 240, 480, 800],
+#     "layers" : [64, 128, 256, 256, 512, 512, 940],
+    "layers" : [64, 120, 240, 480, 960],
     "reduce_threshold" : [0.6,0.8]
 }
 
@@ -166,19 +166,21 @@ class VAE(nn.Module):
         super(VAE, self).__init__()
         
         
-        stride=[1,2,1,2,2,2,2]
-        out_stride=[2,2,2,2,2,2,2]
+        stride=[1,2,2,2,2]
+        out_stride=[2,2,2,2,1]
 #         in_stride=[1,2,2,2,2]
 #         out_stride=[1,2,2,2,1]
-        in_padding=[1,0,1,0,0,0,0]
-        in_trans_padding=[0,0,0,0,1,0,1]
-        out_padding=[0,0,0,0,0,1,0]
-        kernel=[3,3,3,3,3,3,3]
+        in_padding=[3,0,0,0,0]
+        in_trans_padding=[0,0,1,0,0]
+        out_padding=[0,0,1,0,0]
+        kernel=[7,3,3,3,3]
+        kernel_out=[3,3,4,4,1]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
+        layers_out = [64,128,256,512]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
-
+        
         # Initializing the 2 convolutional layers and 2 full-connected layers for the encoder
         self.encConv1 = nn.Conv2d(in_channels=imgChannels, out_channels=layers[0], kernel_size=kernel[0], stride=stride[0], padding=in_padding[0])
         self.encBn1 = nn.BatchNorm2d(layers[0])
@@ -190,35 +192,36 @@ class VAE(nn.Module):
         self.encBn4 = nn.BatchNorm2d(layers[3])
         self.encConv5 = nn.Conv2d(in_channels=layers[3], out_channels=layers[4], kernel_size=kernel[4], stride=stride[4], padding=in_padding[4])
         self.encBn5 = nn.BatchNorm2d(layers[4])
-        self.encConv6 = nn.Conv2d(in_channels=layers[4], out_channels=layers[5], kernel_size=kernel[5], stride=stride[5], padding=in_padding[5])
-        self.encBn6 = nn.BatchNorm2d(layers[5])
-        self.encConv7 = nn.Conv2d(in_channels=layers[5], out_channels=layers[6], kernel_size=kernel[6], stride=stride[6], padding=in_padding[6])
-        self.encBn7 = nn.BatchNorm2d(layers[6])
+#         self.encConv6 = nn.Conv2d(in_channels=layers[4], out_channels=layers[5], kernel_size=kernel[5], stride=stride[5], padding=in_padding[5])
+#         self.encBn6 = nn.BatchNorm2d(layers[5])
+#         self.encConv7 = nn.Conv2d(in_channels=layers[5], out_channels=layers[6], kernel_size=kernel[6], stride=stride[6], padding=in_padding[6])
+#         self.encBn7 = nn.BatchNorm2d(layers[6])
         
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
-#         self.encFC1 = nn.Linear(featureDim, zDim)
+        self.encFC1 = nn.Linear(featureDim, zDim)
 
-#         self.decFC1 = nn.Linear(zDim, featureDim)
-#         self.decBn1 = nn.BatchNorm1d(featureDim)
-        self.decConv1 = nn.ConvTranspose2d(in_channels=layers[6], out_channels=layers[5], kernel_size=kernel[6], stride=stride[6], padding=in_trans_padding[0], output_padding=out_padding[0])
-        self.decBn2 = nn.BatchNorm2d(layers[5])
-        self.decConv2 = nn.ConvTranspose2d(in_channels=layers[5], out_channels=layers[4], kernel_size=kernel[5], stride=stride[5], padding=in_trans_padding[1], output_padding=out_padding[1])
-        self.decBn3 = nn.BatchNorm2d(layers[4])
-        self.decConv3 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers[3], kernel_size=kernel[4], stride=stride[4], padding=in_trans_padding[2], output_padding=out_padding[2])
-        self.decBn4 = nn.BatchNorm2d(layers[3])
-        self.decConv4 = nn.ConvTranspose2d(in_channels=layers[3], out_channels=layers[2], kernel_size=kernel[3], stride=stride[3], padding=in_trans_padding[3], output_padding=out_padding[3])
-        self.decBn5 = nn.BatchNorm2d(layers[2])
-        self.decConv5 = nn.ConvTranspose2d(in_channels=layers[2], out_channels=layers[1], kernel_size=kernel[2], stride=stride[2], padding=in_trans_padding[4], output_padding=out_padding[4])
-        self.decBn6 = nn.BatchNorm2d(layers[1])
-        self.decConv6 = nn.ConvTranspose2d(in_channels=layers[1], out_channels=layers[0], kernel_size=kernel[1], stride=stride[1], padding=in_trans_padding[5], output_padding=out_padding[5])
-        self.decBn7 = nn.BatchNorm2d(layers[0])
-        self.decConv7 = nn.ConvTranspose2d(in_channels=layers[0], out_channels=imgChannels, kernel_size=kernel[0], stride=stride[0], padding=in_trans_padding[6], output_padding=out_padding[6])
+#         Initializing the fully-connected layer and 2 convolutional layers for decoder
+        self.decFC1 = nn.Linear(zDim, featureDim)
+        self.decBn1 = nn.BatchNorm1d(featureDim)
+        self.decConv1 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers_out[0], kernel_size=kernel_out[0], stride=out_stride[0], padding=in_trans_padding[0], output_padding=out_padding[0])
+        self.decBn2 = nn.BatchNorm2d(layers_out[0])
+        self.decConv2 = nn.ConvTranspose2d(in_channels=layers_out[0], out_channels=layers_out[1], kernel_size=kernel_out[1], stride=out_stride[1], padding=in_trans_padding[1], output_padding=out_padding[1])
+        self.decBn3 = nn.BatchNorm2d(layers_out[1])
+        self.decConv3 = nn.ConvTranspose2d(in_channels=layers_out[1], out_channels=layers_out[2], kernel_size=kernel_out[2], stride=out_stride[2], padding=in_trans_padding[2], output_padding=out_padding[2])
+        self.decBn4 = nn.BatchNorm2d(layers_out[2])
+        self.decConv4 = nn.ConvTranspose2d(in_channels=layers_out[2], out_channels=layers_out[3], kernel_size=kernel_out[3], stride=out_stride[3], padding=in_trans_padding[3], output_padding=out_padding[3])
+        self.decBn5 = nn.BatchNorm2d(layers_out[3])
+        self.decConv5 = nn.ConvTranspose2d(in_channels=layers_out[3], out_channels=imgChannels, kernel_size=kernel_out[4], stride=out_stride[4], padding=in_trans_padding[4], output_padding=out_padding[4])
+#         self.decBn6 = nn.BatchNorm2d(layers[1])
+#         self.decConv6 = nn.ConvTranspose2d(in_channels=layers[1], out_channels=layers[0], kernel_size=kernel[1], stride=stride[1], padding=in_trans_padding[5], output_padding=out_padding[5])
+#         self.decBn7 = nn.BatchNorm2d(layers[0])
+#         self.decConv7 = nn.ConvTranspose2d(in_channels=layers[0], out_channels=imgChannels, kernel_size=kernel[0], stride=stride[0], padding=in_trans_padding[6], output_padding=out_padding[6])
         
         self.final_encoder_dim = None
         
-        decoderDims = self.calcDecoderDims(len(layers), encoderDims[-1], kernel, in_trans_padding, out_padding, stride)
-        self.printModel(layers, encoderDims, decoderDims, imgSize, imgChannels)
+        decoderDims = self.calcDecoderDims(len(layers), encoderDims[-1], kernel_out, in_trans_padding, out_padding, out_stride)
+        self.printModel(layers, layers_out, encoderDims, decoderDims, imgSize, imgChannels)
 
     def calcEncoderDims(self, layer_size, imageSize, kernel, in_padding, stride):
         newDims = [imageSize]
@@ -232,13 +235,13 @@ class VAE(nn.Module):
     def calcDecoderDims(self, layer_size, imageSize, kernel, in_trans_padding, out_padding, stride, d=1):
         newDims = [imageSize]
         for x in range(layer_size):            
-            tmpSize = (newDims[-1] - 1)*stride[layer_size-1-x] - 2*in_trans_padding[x] + d*(kernel[layer_size-1-x] - 1) + out_padding[x] + 1
+            tmpSize = (newDims[-1] - 1)*stride[x] - 2*in_trans_padding[x] + d*(kernel[x] - 1) + out_padding[x] + 1
             newDims.append(tmpSize)
 #         newDims.pop(0)
         return newDims
     
     
-    def printModel(self, layers, encDims, decDims, imageSize, imgChannels):
+    def printModel(self, layers, layers_out, encDims, decDims, imageSize, imgChannels):
         print("=============")
         print("Image Flow:")
         print("Encoder:")
@@ -247,38 +250,43 @@ class VAE(nn.Module):
             print(f"{encDims[x]}x{encDims[x]}x{layers[x]}")
         
         print("Decoder:")
-        k = len(layers) - 1
-        for x in range(len(layers)):
-            print(f"{decDims[x]}x{decDims[x]}x{layers[k]}")
-            k = k - 1
+        for x in range(len(layers_out)):
+            if x == 0:
+                print(f"{decDims[x]}x{decDims[x]}x{layers[x]}")
+            print(f"{decDims[x]}x{decDims[x]}x{layers_out[x]}")
         print(f"{decDims[-1]}x{decDims[-1]}x{imgChannels} (Output Image)")
         print("=============")
             
         
     def encoder(self, x):
+#         a = 
+# #         b = self.res_conv1(x)
+#         print(a.size())
+#         x = x.resize_(2,32,510,510)
+#         print(x.size())
+        x1 = F.relu(self.encConv1(x))
+        x1 = self.encBn1(x1)
+#         x = self.res_conv1(x).resize_(parameters["batch_size"],512,512)
+        x2 = F.relu(self.encConv2(x1))
+        x2 = self.encBn2(x2)
+        x3 = F.relu(self.encConv3(x2))
+        x3 = self.encBn3(x3)
+        x4 = F.relu(self.encConv4(x3))
+        x4 = self.encBn4(x4)
+        x5 = F.relu(self.encConv5(x4))
+        x5 = self.encBn5(x5)
+#         x6 = F.relu(self.encConv6(x5))
+#         x6 = self.encBn6(x6)
+#         x7 = F.relu(self.encConv7(x6))
+#         x7 = self.encBn7(x7)
+        self.final_encoder_dim = np.array([x5.size(1), x5.size(2), x5.size(3)])
+        flatten = np.prod(self.final_encoder_dim)
 
-        x = F.leaky_relu(self.encConv1(x))
-        x = self.encBn1(x)
-        x = F.leaky_relu(self.encConv2(x))
-        x = self.encBn2(x)
-        x = F.leaky_relu(self.encConv3(x))
-        x = self.encBn3(x)
-        x = F.leaky_relu(self.encConv4(x))
-        x = self.encBn4(x)
-        x = F.leaky_relu(self.encConv5(x))
-        x = self.encBn5(x)
-        x = F.leaky_relu(self.encConv6(x))
-        x = self.encBn6(x)
-        x = F.leaky_relu(self.encConv7(x))
-        x = self.encBn7(x)
-#         self.final_encoder_dim = np.array([x.size(1), x.size(2), x.size(3)])
-#         flatten = np.prod(self.final_encoder_dim)
-
-#         x = x.view(-1, flatten)
-#         z = F.leaky_relu(self.encFC1(x))
+        x7 = x5.view(-1, flatten)
+        z = self.encFC1(x7)
         
-#         return z
-        return x
+        return z
+#         return x7
 
 #     def reparameterize(self, mu, logVar):
 
@@ -287,30 +295,35 @@ class VAE(nn.Module):
 #         eps = torch.randn_like(std)
 #         return mu + std * eps
 
-    def decoder(self, x):
+    def decoder(self, z):
 
-#         x = F.leaky_relu(self.decFC1(x))
-#         x = self.decBn1(x)
-#         x = x.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
-        x = F.leaky_relu(self.decConv1(x))
-        x = self.decBn2(x)
-        x = F.leaky_relu(self.decConv2(x))
-        x = self.decBn3(x)
-        x = F.leaky_relu(self.decConv3(x))
-        x = self.decBn4(x)
-        x = F.leaky_relu(self.decConv4(x))
-        x = self.decBn5(x)
-        x = F.leaky_relu(self.decConv5(x))
-        x = self.decBn6(x)
-        x = F.leaky_relu(self.decConv6(x))
-        x = self.decBn7(x)
-        x = torch.sigmoid(self.decConv7(x))
-        return x
+        d1 = F.relu(self.decFC1(z))
+        d1 = self.decBn1(d1)
+        d1 = d1.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
+        d2 = F.relu(self.decConv1(d1))
+        d2 = self.decBn2(d2)
+        d3 = F.relu(self.decConv2(d2))
+        d3 = self.decBn3(d3)
+        d4 = F.relu(self.decConv3(d3))
+        d4 = self.decBn4(d4)
+        d5 = F.relu(self.decConv4(d4))
+        d5 = self.decBn5(d5)
+#         d6 = F.relu(self.decConv5(d5))
+#         d6 = self.decBn6(d6)
+#         d7 = F.relu(self.decConv6(d6))
+#         d7 = self.decBn7(d7)
+        d8 = torch.sigmoid(self.decConv5(d5))
+        return d8
 
     def forward(self, x):
+
         z = self.encoder(x)
+
         out = self.decoder(z)
         return out
+    
+#     def residual(self, x, out_channels, stride=2, kernel=1, padding=1):
+#         conv = nn.Conv2d(in_channels=imgChannels, out_channels=out_channels, kernel_size=kernel, stride=stride, padding=padding)
 
 
 # In[ ]:
@@ -425,59 +438,28 @@ def make_prediction(dataSet, index):
         ax2.set_title("Reconstruction")
         ax2.imshow(out)
         return fig
+    
+def save_prediction(dataset, index, epoch, group, title):
+    fig = make_prediction(dataset, index)
+    fig.canvas.draw()
+    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    logger.report_image(group, title, iteration=epoch, image=data)
 
 
-# In[ ]:
+# In[1]:
 
 
 def performance_snapshot(epoch=None):
-    fig = make_prediction(train_data, 0)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Train_set", "001", iteration=epoch, image=data)
-
-    fig = make_prediction(train_data, 1)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Train_set", "002", iteration=epoch, image=data)
-
-    fig = make_prediction(train_data, 2)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Train_set", "003", iteration=epoch, image=data)
-
-    fig = make_prediction(train_data, 3)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Train_set", "004", iteration=epoch, image=data)
-
-    fig = make_prediction(test_data, 1)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Validation_set", "001", iteration=epoch, image=data)
-
-    fig = make_prediction(test_data, 2)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Validation_set", "002", iteration=epoch, image=data)
-
-    fig = make_prediction(test_data, 3)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Validation_set", "003", iteration=epoch, image=data)
-
-    fig = make_prediction(test_data, 4)
-    fig.canvas.draw()
-    data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    logger.report_image("Validation_set", "004", iteration=epoch, image=data)
+    save_prediction(train_data, 0, epoch=epoch, group="Snapshot_Train_set", title="001")
+    save_prediction(train_data, 1, epoch=epoch, group="Snapshot_Train_set", title="002")
+    save_prediction(train_data, 2, epoch=epoch, group="Snapshot_Train_set", title="003")
+    save_prediction(train_data, 3, epoch=epoch, group="Snapshot_Train_set", title="004")
+    
+    save_prediction(test_data, 0, epoch=epoch, group="Snapshot_Validation_set", title="001")
+    save_prediction(test_data, 1, epoch=epoch, group="Snapshot_Validation_set", title="002")
+    save_prediction(test_data, 2, epoch=epoch, group="Snapshot_Validation_set", title="003")
+    save_prediction(test_data, 3, epoch=epoch, group="Snapshot_Validation_set", title="004")
 
 
 # In[ ]:
@@ -542,7 +524,7 @@ for e in range(1, parameters["epoch"]+1):
         "MSE", "train", iteration=e, value=train_mse)
     logger.report_scalar(
         "MSE", "validation", iteration=e, value=val_mse)
-    if e % 3 == 0:
+    if e % 1000 == 0 and not e == 0:
         model.eval()
         performance_snapshot(epoch=e)
         model.train()
@@ -652,53 +634,15 @@ with torch.no_grad():
 # In[1]:
 
 
-fig = make_prediction(train_data, 0)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Train_set", "001", image=data)
+save_prediction(train_data, 0, epoch=None, group="#Train_set", title="001")
+save_prediction(train_data, 1, epoch=None, group="#Train_set", title="002")
+save_prediction(train_data, 2, epoch=None, group="#Train_set", title="003")
+save_prediction(train_data, 3, epoch=None, group="#Train_set", title="004")
 
-fig = make_prediction(train_data, 1)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Train_set", "002", image=data)
-
-fig = make_prediction(train_data, 2)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Train_set", "003", image=data)
-
-fig = make_prediction(train_data, 3)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Train_set", "004", image=data)
-
-fig = make_prediction(test_data, 1)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Validation_set", "001", image=data)
-
-fig = make_prediction(test_data, 2)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Validation_set", "002", image=data)
-
-fig = make_prediction(test_data, 3)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Validation_set", "003", image=data)
-
-fig = make_prediction(test_data, 4)
-fig.canvas.draw()
-data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
-data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-logger.report_image("Validation_set", "004", image=data)
+save_prediction(test_data, 0, epoch=None, group="#Validation_set", title="001")
+save_prediction(test_data, 1, epoch=None, group="#Validation_set", title="002")
+save_prediction(test_data, 2, epoch=None, group="#Validation_set", title="003")
+save_prediction(test_data, 3, epoch=None, group="#Validation_set", title="004")
 
 
 # In[ ]:

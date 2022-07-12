@@ -145,6 +145,69 @@ class Sampler:
         return pathToStorage
 
 # ==============================================================================
+# -- Video section -------------------------------------------------------------
+# ==============================================================================
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# 
+    def add_model_prediction(self, model, device, true_image):
+        true_image = np.transpose(true_image, (2,1,0))
+        img = np.array([true_image])
+        img = torch.as_tensor(img)
+        img = img.to(device)
+        out = model(img)
+        out = out[0].detach().cpu().numpy()
+        
+        seperator = np.zeros((3,20,512))
+        
+        final_img = np.concatenate((true_image, seperator, out), axis=1)
+        final_img = np.transpose(final_img, (2,1,0))
+        return final_img
+
+    # 10 fps rendering
+    def sample_canonicaly(self, model, device, seconds):
+        
+        images = self.sample_Ride(world_model="Town01_Opt", num_of_snaps=seconds*10, tick_rate=0.1)
+        storagePath = "/disk/vanishing_data/is789/anomaly_samples/video_images/"
+        path_list = Sampler.get_image_paths(storagePath)
+        for path in path_list: #remove former runs
+            os.remove(path)
+        if not os.path.isdir(storagePath):
+            os.mkdir(storagePath)
+            
+
+        tmp = images
+        images = []
+        for image in tmp:
+            model_predict = self.add_model_prediction(model, device, image)
+            images.append(model_predict)
+            
+        image_index = 0
+        images = np.array(images)
+        images = (images * 255).astype("int")
+        for k in range(len(images)):
+            fill_index = image_index
+            if image_index < 10:
+                fill_index = "00"+str(image_index)
+            elif image_index < 100:
+                fill_index = "0"+str(image_index)
+            cv2.imwrite(storagePath + f"snap_{fill_index}.png", images[k])
+            # plt.imsave(storagePath + f"snap_{image_index}.png",images[k], format="png")
+            image_index = image_index + 1
+        
+        return storagePath
+    
+    def create_model_video(self, model, device, seconds=14):
+        storagePath = self.sample_canonicaly(model, device, seconds)
+        path_list = sorted(Sampler.get_image_paths(storagePath))
+        video = cv2.VideoWriter("example_ride.avi", 0, 10, (1044,512))
+        for path in path_list:
+            video.write(cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB))
+        cv2.destroyAllWindows()
+        return video.release()
+
+
+
+# ==============================================================================
 # -- Static methods ------------------------------------------------------------
 # ==============================================================================
 
@@ -179,7 +242,7 @@ class Sampler:
 
         print(f"width = {len(img_list[index])}, height = {len(img_list[index][0])}, channels = {len(img_list[index][0][0])}")
 
-    
+
     @staticmethod
     def get_image_paths(path):
         path_list = []
