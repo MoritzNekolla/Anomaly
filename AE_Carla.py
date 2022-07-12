@@ -30,13 +30,13 @@ MODEL_NAME = "clearML"
 PATH = "models/" + MODEL_NAME
 # IMG_TRAIN = "/disk/vanishing_data/is789/anomaly_samples/train_set/"
 # IMG_TEST = "/disk/vanishing_data/is789/anomaly_samples/40test/"
-TRAIN_ID = "7c89dda94374478a8937be5916177f70"
-TEST_ID = "df4380bfcf004bfabaa500ee491e0541"
+TRAIN_ID = "fe3a1fe7e1dc4fa58a6f8ff8e6f275bd"
+TEST_ID = "cd75e39b0aa641fc9b7e6d6c76656627"
 # TRAIN_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
 
 
 ### ClearML section
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri=PATH)
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri="https://tks-zx-01.fzi.de:8081")
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",

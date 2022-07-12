@@ -151,11 +151,14 @@ class Sampler:
 
     # loads the set of images
     @staticmethod
-    def load_Images(dir_path):
+    def load_Images(dir_path, size=9999999999):
+        if size <= 0: size = 9999999999
         path_list = Sampler.get_image_paths(dir_path)
         img_list = []
 
-        for path in path_list:
+        for x in range(len(path_list)):
+            if x >= size: break
+            path = path_list[x]
             img = cv2.imread(path)
             img_list.append(img)
         
