@@ -36,7 +36,7 @@ TEST_ID = "cd75e39b0aa641fc9b7e6d6c76656627"
 
 
 ### ClearML section
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri="https://tks-zx-01.fzi.de:8081")
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla_FC", output_uri="https://tks-zx-01.fzi.de:8081")
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
@@ -58,10 +58,11 @@ parameters = {
     "epoch" : 1000,
     "batch_size" : 10,
     "imgSize": 512,
-    "zDim": 128,
+    "zDim": 256,
     "learning_rate" : 1e-05,
 #     "layers" : [64, 128, 256, 256, 512, 512, 940],
     "layers" : [64, 120, 240, 480, 512],
+    "layers_out" : [256,256,128,64],
     "reduce_threshold" : [0.6,0.8]
 }
 
@@ -174,7 +175,7 @@ class VAE(nn.Module):
         kernel_out=[3,3,4,4,1]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
-        layers_out = [256,256,128,64]
+        layers_out = parameters["layers_out"]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
         
@@ -195,12 +196,12 @@ class VAE(nn.Module):
 #         self.encBn7 = nn.BatchNorm2d(layers[6])
         
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
-#         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
-#         self.encFC1 = nn.Linear(featureDim, zDim)
+        featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
+        self.encFC1 = nn.Linear(featureDim, zDim)
 
 # #         Initializing the fully-connected layer and 2 convolutional layers for decoder
-#         self.decFC1 = nn.Linear(zDim, featureDim)
-#         self.decBn1 = nn.BatchNorm1d(featureDim)
+        self.decFC1 = nn.Linear(zDim, featureDim)
+        self.decBn1 = nn.BatchNorm1d(featureDim)
         self.decConv1 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers_out[0], kernel_size=kernel_out[0], stride=out_stride[0], padding=in_trans_padding[0], output_padding=out_padding[0])
         self.decBn2 = nn.BatchNorm2d(layers_out[0])
         self.decConv2 = nn.ConvTranspose2d(in_channels=layers_out[0], out_channels=layers_out[1], kernel_size=kernel_out[1], stride=out_stride[1], padding=in_trans_padding[1], output_padding=out_padding[1])
@@ -276,28 +277,22 @@ class VAE(nn.Module):
 #         x6 = self.encBn6(x6)
 #         x7 = F.relu(self.encConv7(x6))
 #         x7 = self.encBn7(x7)
-#         self.final_encoder_dim = np.array([x5.size(1), x5.size(2), x5.size(3)])
-#         flatten = np.prod(self.final_encoder_dim)
+        self.final_encoder_dim = np.array([x5.size(1), x5.size(2), x5.size(3)])
+        flatten = np.prod(self.final_encoder_dim)
 
-#         x7 = x5.view(-1, flatten)
-#         z = self.encFC1(x7)
+        x7 = x5.view(-1, flatten)
+        z = self.encFC1(x7)
         
-#         return z
-        return x5
+        return z
+#         return x5
 
-#     def reparameterize(self, mu, logVar):
-
-#         #Reparameterization takes in the input mu and logVar and sample the mu + std * eps
-#         std = torch.exp(logVar/2)
-#         eps = torch.randn_like(std)
-#         return mu + std * eps
 
     def decoder(self, z):
 
-#         d1 = F.relu(self.decFC1(z))
-#         d1 = self.decBn1(d1)
-#         d1 = d1.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
-        d2 = F.relu(self.decConv1(z))
+        d1 = F.relu(self.decFC1(z))
+        d1 = self.decBn1(d1)
+        d1 = d1.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
+        d2 = F.relu(self.decConv1(d1))
         d2 = self.decBn2(d2)
         d3 = F.relu(self.decConv2(d2))
         d3 = self.decBn3(d3)
