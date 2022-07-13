@@ -73,7 +73,7 @@ guard = int(parameters["epoch"] / 10)
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=10000).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=12000).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
@@ -174,7 +174,7 @@ class VAE(nn.Module):
         kernel_out=[3,3,4,4,1]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
-        layers_out = [512,256,128,64]
+        layers_out = [256,256,128,64]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
         
@@ -249,7 +249,7 @@ class VAE(nn.Module):
         print("Decoder:")
         for x in range(len(layers_out)):
             if x == 0:
-                print(f"{decDims[x]}x{decDims[x]}x{layers[x]}")
+                print(f"{decDims[x]}x{decDims[x]}x{layers[-1]}")
             print(f"{decDims[x]}x{decDims[x]}x{layers_out[x]}")
         print(f"{decDims[-1]}x{decDims[-1]}x{imgChannels} (Output Image)")
         print("=============")
@@ -420,7 +420,7 @@ def make_prediction(dataSet, index):
         imgs = imgs.to(device)
     #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
         true_img = imgs[0].cpu().numpy()
-        true_img = np.transpose(img, (2,1,0))
+        true_img = np.transpose(true_img, (2,1,0))
 
         out = model(imgs)
     #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
