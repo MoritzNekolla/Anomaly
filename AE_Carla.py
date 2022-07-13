@@ -73,7 +73,7 @@ start_time = time.time()
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=15000).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=13000).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
@@ -177,7 +177,7 @@ class VAE(nn.Module):
         kernel_out=[3,3,4,4,1]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
-        layers_out = [64,128,256,512]
+        layers_out = [32,32,32,32]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
         
@@ -198,12 +198,12 @@ class VAE(nn.Module):
 #         self.encBn7 = nn.BatchNorm2d(layers[6])
         
         encoderDims = self.calcEncoderDims(len(layers), imgSize, kernel, in_padding, stride)
-        featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
-        self.encFC1 = nn.Linear(featureDim, zDim)
+#         featureDim = layers[-1] * encoderDims[-1] * encoderDims[-1]
+#         self.encFC1 = nn.Linear(featureDim, zDim)
 
-#         Initializing the fully-connected layer and 2 convolutional layers for decoder
-        self.decFC1 = nn.Linear(zDim, featureDim)
-        self.decBn1 = nn.BatchNorm1d(featureDim)
+# #         Initializing the fully-connected layer and 2 convolutional layers for decoder
+#         self.decFC1 = nn.Linear(zDim, featureDim)
+#         self.decBn1 = nn.BatchNorm1d(featureDim)
         self.decConv1 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers_out[0], kernel_size=kernel_out[0], stride=out_stride[0], padding=in_trans_padding[0], output_padding=out_padding[0])
         self.decBn2 = nn.BatchNorm2d(layers_out[0])
         self.decConv2 = nn.ConvTranspose2d(in_channels=layers_out[0], out_channels=layers_out[1], kernel_size=kernel_out[1], stride=out_stride[1], padding=in_trans_padding[1], output_padding=out_padding[1])
@@ -279,14 +279,14 @@ class VAE(nn.Module):
 #         x6 = self.encBn6(x6)
 #         x7 = F.relu(self.encConv7(x6))
 #         x7 = self.encBn7(x7)
-        self.final_encoder_dim = np.array([x5.size(1), x5.size(2), x5.size(3)])
-        flatten = np.prod(self.final_encoder_dim)
+#         self.final_encoder_dim = np.array([x5.size(1), x5.size(2), x5.size(3)])
+#         flatten = np.prod(self.final_encoder_dim)
 
-        x7 = x5.view(-1, flatten)
-        z = self.encFC1(x7)
+#         x7 = x5.view(-1, flatten)
+#         z = self.encFC1(x7)
         
-        return z
-#         return x7
+#         return z
+        return x5
 
 #     def reparameterize(self, mu, logVar):
 
@@ -297,10 +297,10 @@ class VAE(nn.Module):
 
     def decoder(self, z):
 
-        d1 = F.relu(self.decFC1(z))
-        d1 = self.decBn1(d1)
-        d1 = d1.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
-        d2 = F.relu(self.decConv1(d1))
+#         d1 = F.relu(self.decFC1(z))
+#         d1 = self.decBn1(d1)
+#         d1 = d1.view(-1, self.final_encoder_dim[0], self.final_encoder_dim[1], self.final_encoder_dim[2])
+        d2 = F.relu(self.decConv1(z))
         d2 = self.decBn2(d2)
         d3 = F.relu(self.decConv2(d2))
         d3 = self.decBn3(d3)
