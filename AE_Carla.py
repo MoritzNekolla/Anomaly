@@ -73,7 +73,7 @@ start_time = time.time()
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=11000).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=10000).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
