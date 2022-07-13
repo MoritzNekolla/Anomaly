@@ -61,7 +61,7 @@ parameters = {
     "zDim": 128,
     "learning_rate" : 1e-05,
 #     "layers" : [64, 128, 256, 256, 512, 512, 940],
-    "layers" : [64, 120, 240, 480, 960],
+    "layers" : [64, 120, 240, 480, 512],
     "reduce_threshold" : [0.6,0.8]
 }
 
@@ -73,7 +73,7 @@ start_time = time.time()
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=13000).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=11000).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
@@ -95,21 +95,18 @@ logger = task.get_logger()
 
 ## transpose images
 
-def discardLabels(data):
+def transpose_img(data):
     x = 0
     new_data = []
     for img in data:
 #         img = img.numpy()
         img = np.transpose(img, (2,1,0))
         new_data.append(img)
-        x+=1
-        if x == 40:
-            return np.array(new_data)
         
     return np.array(new_data)
 
-train_data = torch.as_tensor(discardLabels(train_data))
-test_data = torch.as_tensor(discardLabels(test_data))
+train_data = torch.as_tensor(transpose_img(train_data))
+test_data = torch.as_tensor(transpose_img(test_data))
 
 
 # In[ ]:
@@ -124,29 +121,29 @@ plt.imshow(img)
 # In[ ]:
 
 
-## apply noise
-noise_set = []
+# ## apply noise
+# noise_set = []
 
-for img in test_data:
-    pic = img.numpy().copy()
-    pic[:,250:310,200:350] = 0.0
-    noise_set.append(pic)
+# for img in test_data:
+#     pic = img.numpy().copy()
+#     pic[:,250:310,200:350] = 0.0
+#     noise_set.append(pic)
 
-noise_set = np.array(noise_set)
-noise_set = torch.as_tensor(noise_set)
-noise_set.shape
+# noise_set = np.array(noise_set)
+# noise_set = torch.as_tensor(noise_set)
+# noise_set.shape
 
 
 # In[ ]:
 
 
-## show noisy image
+# ## show noisy image
 
-img = noise_set[11]
-# img = img.squeeze()
-img = img.numpy()
-img = np.transpose(img, (2,1,0))
-plt.imshow(img)
+# img = noise_set[11]
+# # img = img.squeeze()
+# img = img.numpy()
+# img = np.transpose(img, (2,1,0))
+# plt.imshow(img)
 
 
 # In[ ]:
@@ -177,7 +174,7 @@ class VAE(nn.Module):
         kernel_out=[3,3,4,4,1]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
-        layers_out = [32,32,32,32]
+        layers_out = [64,128,256,512]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
         
@@ -384,10 +381,10 @@ dataloaders["test"] = DataLoader(dataset=test_data,
                                           shuffle=True,
                                           drop_last=True)
 
-dataloaders["noise"] = DataLoader(dataset=noise_set,
-                                          batch_size=5,
-                                          shuffle=True,
-                                          drop_last=True)
+# dataloaders["noise"] = DataLoader(dataset=noise_set,
+#                                           batch_size=5,
+#                                           shuffle=True,
+#                                           drop_last=True)
 
 images = next(iter(dataloaders["test"]))
 plt.imshow(np.transpose(images[0], (2,1,0)))
@@ -420,22 +417,24 @@ def make_prediction(dataSet, index):
     model.eval()
     with torch.no_grad():
         imgs = torch.as_tensor(np.array([dataSet[index].numpy()]))
-        print(imgs.shape)
         imgs = imgs.to(device)
     #         img = np.transpose(imgs[0].cpu().numpy(), [1,2,0])
-        img = imgs[0].cpu().numpy()
-        img = np.transpose(img, (2,1,0))
+        true_img = imgs[0].cpu().numpy()
+        true_img = np.transpose(img, (2,1,0))
 
         out = model(imgs)
     #         outimg = np.transpose(out[0].cpu().numpy(), [1,2,0])
         out = out[0].cpu().numpy()
         out = np.transpose(out, (2,1,0))
-
+        errorMatrix = np.absolute(true_img - out)
+        errorAvg = np.sum(errorMatrix) / (errorMatrix.shape[0] * errorMatrix.shape[1] * errorMatrix.shape[2])
+        errorAvg = int(errorAvg * 100000)/ 100000.0
+        
         #plotting
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15,15))
         ax1.set_title("Original")
-        ax1.imshow(img)
-        ax2.set_title("Reconstruction")
+        ax1.imshow(true_img)
+        ax2.set_title(f"Reconstruction | MAE: {errorAvg}")
         ax2.imshow(out)
         return fig
     
