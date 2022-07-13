@@ -55,7 +55,7 @@ task.execute_remotely('rtx3090', clone=False, exit_process=True)
 # layers=[32, 64, 128, 265, 512]
 
 parameters = {
-    "epoch" : 16000,
+    "epoch" : 1000,
     "batch_size" : 10,
     "imgSize": 512,
     "zDim": 128,
@@ -65,7 +65,7 @@ parameters = {
     "reduce_threshold" : [0.6,0.8]
 }
 
-start_time = time.time()
+guard = int(parameters["epoch"] / 10)
 
 
 # In[ ]:
@@ -174,7 +174,7 @@ class VAE(nn.Module):
         kernel_out=[3,3,4,4,1]
 #         layers=[128, 128, 128, 256, 256]
         layers=parameters["layers"]
-        layers_out = [64,128,256,512]
+        layers_out = [512,256,128,64]
 #         layers=[32, 64, 64, 128, 128]
 #         layers=[64, 128, 128, 128, 256]
         
@@ -523,9 +523,10 @@ for e in range(1, parameters["epoch"]+1):
         "MSE", "train", iteration=e, value=train_mse)
     logger.report_scalar(
         "MSE", "validation", iteration=e, value=val_mse)
-    if e % 1000 == 0 and not e == 0:
+    if e % guard == 0 and not e == 0:
         model.eval()
         performance_snapshot(epoch=e)
+        torch.save(model.state_dict(), "model.pt")
         model.train()
 
     print(f"Epoch {e} | Loss: {train_loss} | V_Loss: {val_loss} | MSE: {train_mse} | V_MSE: {val_mse}")
