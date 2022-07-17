@@ -30,7 +30,7 @@ MODEL_NAME = "clearML"
 PATH = "models/" + MODEL_NAME
 # IMG_TRAIN = "/disk/vanishing_data/is789/anomaly_samples/train_set/"
 # IMG_TEST = "/disk/vanishing_data/is789/anomaly_samples/40test/"
-TRAIN_ID = "fe3a1fe7e1dc4fa58a6f8ff8e6f275bd"
+TRAIN_ID = "8298220dc83a467c82279adef27a3d73"
 TEST_ID = "cd75e39b0aa641fc9b7e6d6c76656627"
 # TRAIN_ID = "8ce5cdd31e8e499db2e07fc70b6136d5"
 
@@ -58,7 +58,7 @@ parameters = {
     "epoch" : 1000,
     "batch_size" : 10,
     "imgSize": 512,
-    "zDim": 256,
+    "zDim": 512,
     "learning_rate" : 1e-05,
 #     "layers" : [64, 128, 256, 256, 512, 512, 940],
     "layers" : [64, 120, 240, 480, 512],
@@ -74,7 +74,7 @@ guard = int(parameters["epoch"] / 10)
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=12000).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=None).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
