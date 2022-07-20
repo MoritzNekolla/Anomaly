@@ -62,7 +62,7 @@ parameters = {
     "learning_rate" : 1e-05,
 #     "layers" : [64, 128, 256, 256, 512, 512, 940],
     "layers" : [64, 120, 240, 480, 512],
-    "layers_out" : [256,256,128,64],
+    "layers_out" : [512,256,128,64],
     "reduce_threshold" : [0.6,0.8]
 }
 
@@ -74,7 +74,7 @@ guard = int(parameters["epoch"] / 10)
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=None).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=10000).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
