@@ -11,6 +11,7 @@ import time
 
 import matplotlib.pyplot as plt
 import matplotlib.image as mpllimg
+from matplotlib.pyplot import figure
 import cv2
 
 import torch
@@ -147,8 +148,7 @@ class Sampler:
 # ==============================================================================
 # -- Video section -------------------------------------------------------------
 # ==============================================================================
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# 
+
     def add_model_prediction(self, model, device, true_image):
         true_image = np.transpose(true_image, (2,1,0))
         img = np.array([true_image])
@@ -157,16 +157,87 @@ class Sampler:
         out = model(img)
         out = out[0].detach().cpu().numpy()
         
-        seperator = np.zeros((3,20,512))
+        seperator = np.zeros((3,15,512))
+     
+        prediction_img = np.concatenate((true_image, seperator, out), axis=1)
+        prediction_img = np.transpose(prediction_img, (2,1,0))
+
+        return prediction_img, np.transpose(out, (2,1,0))
+
+    def add_errormap(self, input, output):
+        #1 grayscale
+        g_input = np.dot(input[...,:3], [0.2989, 0.5870, 0.1140])
+        g_output = np.dot(output[...,:3], [0.2989, 0.5870, 0.1140])
+        errormap = abs(g_input-g_output)
+        errorMatrix = abs(input-output)
         
-        final_img = np.concatenate((true_image, seperator, out), axis=1)
-        final_img = np.transpose(final_img, (2,1,0))
-        return final_img
+        #2 heatmap
+        hm = np.zeros((512,512,3))
+        hm = hm.astype("float32")
+        for x in range(len(hm)):
+            for y in range(len(hm[x])):
+                if errormap[x][y] < 0.5:
+                    hm[x][y][2] = 1
+                    hm[x][y][1] = 2*errormap[x][y]
+                    hm[x][y][0] = 2*errormap[x][y]
+                else:
+                    hm[x][y][0] = 1
+                    hm[x][y][1] = 1 - 2*(errormap[x][y] - 0.5)
+                    hm[x][y][2] = 1 - 2*(errormap[x][y] - 0.5)
+
+        #3 colorbar
+        bar = np.zeros((450,25,3))
+        ll = np.linspace(0,1,450)
+        for y in range(len(bar)):
+            if ll[y] < 0.5:
+                bar[y,:,2] = 1
+                bar[y,:,1] = 2*ll[y]
+                bar[y,:,0] = 2*ll[y]
+            else:
+                bar[y,:,2] = 1 - 2*(ll[y] - 0.5)
+                bar[y,:,1] = 1 - 2*(ll[y] - 0.5)
+                bar[y,:,0] = 1
+
+        padd = np.zeros((31,25,3)) + 1.0
+        bar = np.vstack((padd, bar, padd))
+
+                
+
+        #4 vstack
+        padding = np.zeros((512,15,3)).astype("float32")
+        # padding = padding + 1.0
+        padding1 = np.zeros((512,30,3)).astype("float32")
+        padding1 = padding1 + 1.0
+        padding2 = np.zeros((512,31,3)).astype("float32")
+        padding2 = padding2 + 1.0
+        heatmap = np.hstack((hm,padding, padding1, bar,padding2))
+
+        return heatmap
+
+    def add_errorPlot(self, input, output, errorScores, samples):
+        errorMatrix = abs(input-output)
+        errorAvg = np.sum(errorMatrix) / (errorMatrix.shape[0] * errorMatrix.shape[1] * errorMatrix.shape[2])
+        errorAvg = int(errorAvg * 100000) / 100000.0
+        errorScores.append(errorAvg)
+
+        figure(figsize=(4.27, 5.12), dpi=100)
+        plt.xlim(-5, 140)
+        plt.ylim(-0.01, 0.3)
+        plt.plot(errorScores, color="black", lw=3)
+        # get image as np.array
+        canvas = plt.gca().figure.canvas
+        canvas.draw()
+        data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+        errorPlot = data.reshape(canvas.get_width_height()[::-1] + (3,))
+
+        
+        plt.close()
+        return errorPlot, errorScores
 
     # 10 fps rendering
     def sample_canonicaly(self, model, device, seconds):
-        
-        images = self.sample_Ride(world_model="Town01_Opt", num_of_snaps=seconds*10, tick_rate=0.1)
+        seconds = seconds * 10
+        images = self.sample_Ride(world_model="Town01_Opt", num_of_snaps=seconds, tick_rate=0.1)
         storagePath = "/disk/vanishing_data/is789/anomaly_samples/video_images/"
         path_list = Sampler.get_image_paths(storagePath)
         for path in path_list: #remove former runs
@@ -177,9 +248,16 @@ class Sampler:
 
         tmp = images
         images = []
+        errorScores = [0]
         for image in tmp:
-            model_predict = self.add_model_prediction(model, device, image)
-            images.append(model_predict)
+            model_predict, output = self.add_model_prediction(model, device, image)
+            heatmap = self.add_errormap(image, output)
+            errorPlot, errorScores = self.add_errorPlot(image, output, errorScores, seconds)
+            seperator_v = np.zeros((15,1039,3))
+            secondLine = np.hstack((heatmap, errorPlot))
+
+            final_img = np.vstack((model_predict, seperator_v, secondLine))
+            images.append(final_img)
             
         image_index = 0
         images = np.array(images)
@@ -199,7 +277,7 @@ class Sampler:
     def create_model_video(self, model, device, seconds=14):
         storagePath = self.sample_canonicaly(model, device, seconds)
         path_list = sorted(Sampler.get_image_paths(storagePath))
-        video = cv2.VideoWriter("example_ride.avi", 0, 10, (1044,512))
+        video = cv2.VideoWriter("example_ride.avi", 0, 10, (1039,1039))
         for path in path_list:
             video.write(cv2.cvtColor(cv2.imread(path), cv2.COLOR_BGR2RGB))
         cv2.destroyAllWindows()
