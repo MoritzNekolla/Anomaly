@@ -36,7 +36,7 @@ TEST_ID = "cd75e39b0aa641fc9b7e6d6c76656627"
 
 
 ### ClearML section
-task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla_FC", output_uri="https://tks-zx-01.fzi.de:8081")
+task = Task.init(project_name="bogdoll/Anomaly_detection_Moritz", task_name="AE_carla", output_uri="https://tks-zx-01.fzi.de:8081")
 task.set_base_docker(
             "nvcr.io/nvidia/pytorch:21.10-py3",
             docker_setup_bash_script="apt-get update && apt-get install -y python3-opencv",
@@ -61,11 +61,11 @@ parameters = {
     "zDim": 512,
     "learning_rate" : 1e-05,
 #     "layers" : [64, 128, 256, 256, 512, 512, 940],
-    "layers" : [64, 120, 240, 480, 512],
-    "layers_out" : [512,256,128,64],
+    "layers" : [64, 120, 240, 480, 3],
+    "layers_out" : [512,512,256,128,64],
     "reduce_threshold" : [0.6,0.8]
 }
-
+# 786.432 = 512x512x3
 guard = int(parameters["epoch"] / 10)
 
 
@@ -74,7 +74,7 @@ guard = int(parameters["epoch"] / 10)
 
 print("Loading data...")
 train_data = Dataset.get(dataset_id=TRAIN_ID).get_local_copy()
-train_data = Sampler.load_Images(train_data, size=11000).astype("float32") / 255
+train_data = Sampler.load_Images(train_data, size=10500).astype("float32") / 255
 parameters["train_data"] = train_data.shape
 print(train_data.shape)
 
@@ -201,15 +201,15 @@ class VAE(nn.Module):
 # #         Initializing the fully-connected layer and 2 convolutional layers for decoder
 #         self.decFC1 = nn.Linear(zDim, featureDim)
 #         self.decBn1 = nn.BatchNorm1d(featureDim)
-        self.decConv1 = nn.ConvTranspose2d(in_channels=layers[4], out_channels=layers_out[0], kernel_size=kernel_out[0], stride=out_stride[0], padding=in_trans_padding[0], output_padding=out_padding[0])
+        self.decConv1 = nn.ConvTranspose2d(in_channels=layers_out[0], out_channels=layers_out[0], kernel_size=kernel_out[0], stride=out_stride[0], padding=in_trans_padding[0], output_padding=out_padding[0])
         self.decBn2 = nn.BatchNorm2d(layers_out[0])
-        self.decConv2 = nn.ConvTranspose2d(in_channels=layers_out[0], out_channels=layers_out[1], kernel_size=kernel_out[1], stride=out_stride[1], padding=in_trans_padding[1], output_padding=out_padding[1])
+        self.decConv2 = nn.ConvTranspose2d(in_channels=layers_out[1], out_channels=layers_out[1], kernel_size=kernel_out[1], stride=out_stride[1], padding=in_trans_padding[1], output_padding=out_padding[1])
         self.decBn3 = nn.BatchNorm2d(layers_out[1])
-        self.decConv3 = nn.ConvTranspose2d(in_channels=layers_out[1], out_channels=layers_out[2], kernel_size=kernel_out[2], stride=out_stride[2], padding=in_trans_padding[2], output_padding=out_padding[2])
+        self.decConv3 = nn.ConvTranspose2d(in_channels=layers_out[2], out_channels=layers_out[2], kernel_size=kernel_out[2], stride=out_stride[2], padding=in_trans_padding[2], output_padding=out_padding[2])
         self.decBn4 = nn.BatchNorm2d(layers_out[2])
-        self.decConv4 = nn.ConvTranspose2d(in_channels=layers_out[2], out_channels=layers_out[3], kernel_size=kernel_out[3], stride=out_stride[3], padding=in_trans_padding[3], output_padding=out_padding[3])
+        self.decConv4 = nn.ConvTranspose2d(in_channels=layers_out[3], out_channels=layers_out[3], kernel_size=kernel_out[3], stride=out_stride[3], padding=in_trans_padding[3], output_padding=out_padding[3])
         self.decBn5 = nn.BatchNorm2d(layers_out[3])
-        self.decConv5 = nn.ConvTranspose2d(in_channels=layers_out[3], out_channels=imgChannels, kernel_size=kernel_out[4], stride=out_stride[4], padding=in_trans_padding[4], output_padding=out_padding[4])
+        self.decConv5 = nn.ConvTranspose2d(in_channels=layers_out[4], out_channels=imgChannels, kernel_size=kernel_out[4], stride=out_stride[4], padding=in_trans_padding[4], output_padding=out_padding[4])
 #         self.decBn6 = nn.BatchNorm2d(layers[1])
 #         self.decConv6 = nn.ConvTranspose2d(in_channels=layers[1], out_channels=layers[0], kernel_size=kernel[1], stride=stride[1], padding=in_trans_padding[5], output_padding=out_padding[5])
 #         self.decBn7 = nn.BatchNorm2d(layers[0])
